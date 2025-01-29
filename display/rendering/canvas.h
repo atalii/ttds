@@ -32,6 +32,10 @@ void rendering_fill(struct canvas *, struct color);
 
 void rendering_draw_rect(struct canvas *, const struct rect *, struct color);
 
+// Copy the pixels at `src` to a translated rectangle starting at `(x, y)`.
+void rendering_copy_rect(
+    struct canvas *, uint16_t x, uint16_t y, const struct rect *src);
+
 void rendering_draw_circle(
     struct canvas *, const struct circle *, struct color);
 

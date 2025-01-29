@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 static void draw_point(struct canvas *, int32_t x, int32_t y, struct color);
+static inline intmax_t min(intmax_t, intmax_t);
 
 struct canvas *canvas_init_bgra(uint16_t width, uint16_t height)
 {
@@ -110,6 +111,47 @@ void rendering_draw_circle(
 	}
 }
 
+void rendering_copy_rect(
+    struct canvas *c, uint16_t dst_x, uint16_t dst_y, const struct rect *src)
+{
+	// The regions may overlap, so we care whether we are incrementing or
+	// decrementing the y coordinate while traversing the source. When the
+	// copy is solely horizontal, we prefer incrementing.
+	const bool y_inc = dst_y <= src->y; // Flipped because +y is down.
+
+	// TODO: so verbose
+
+	const uint32_t src_right_edge = (uint32_t)src->x + src->w;
+	const uint32_t dst_right_edge = (uint32_t)dst_x + src->w;
+	const uint32_t src_bottom_edge = (uint32_t)src->y + src->h;
+	const uint32_t dst_bottom_edge = (uint32_t)dst_y + src->h;
+
+	const int32_t src_safe_width =
+	    (int32_t)min(c->width, src_right_edge) - src->x;
+	const int32_t dst_safe_width =
+	    (int32_t)min(c->width, dst_right_edge) - dst_x;
+
+	const int32_t src_safe_height =
+	    (int32_t)min(c->height, src_bottom_edge) - src->y;
+	const int32_t dst_safe_height =
+	    (int32_t)min(c->height, dst_bottom_edge) - dst_y;
+
+	const int32_t safe_width = min(dst_safe_width, src_safe_width);
+	const int32_t safe_height = min(dst_safe_height, src_safe_height);
+	if (safe_width <= 0)
+		return;
+
+	for (int32_t dy = y_inc ? 0 : safe_height - 1;
+	    dy < safe_height && dy >= 0; y_inc ? dy++ : dy--) {
+		uint16_t src_row_y = src->y + dy;
+		uint16_t dst_row_y = dst_y + dy;
+		size_t src_idx = (size_t)c->stride * src_row_y + (src->x * 4);
+		size_t dst_idx = (size_t)c->stride * dst_row_y + (dst_x * 4);
+		memmove(&c->buffer[dst_idx], &c->buffer[src_idx],
+		    (size_t)safe_width * 4);
+	}
+}
+
 void rendering_dump_bgra_to_rgba(
     const struct canvas *c, DIR *dir, const char *dirpath, const char *path)
 {
@@ -168,4 +210,9 @@ static void draw_point(
 
 	size_t off = (c->stride * y) + (x * sizeof(mapped));
 	memcpy(&c->buffer[off], mapped, sizeof(mapped));
+}
+
+static inline intmax_t min(intmax_t a, intmax_t b)
+{
+	return a < b ? a : b;
 }

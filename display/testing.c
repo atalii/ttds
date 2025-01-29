@@ -32,6 +32,7 @@ static void run_these_tests(
 
 static void test_rects(struct canvas *c);
 static void test_circles(struct canvas *c);
+static void test_copy_rect(struct canvas *c);
 
 void run_tests(const char *dump_dir)
 {
@@ -47,6 +48,13 @@ void run_tests(const char *dump_dir)
 		    .fill_color = BG,
 		    .draw_fn = test_circles,
 		    .output_path = "circles.data",
+		    .width = 128,
+		    .height = 128,
+		},
+		{
+		    .fill_color = BG,
+		    .draw_fn = test_copy_rect,
+		    .output_path = "copy-rect.data",
 		    .width = 128,
 		    .height = 128,
 		},
@@ -171,4 +179,53 @@ static void test_circles(struct canvas *c)
 		};
 		rendering_draw_circle(c, &circle, FG);
 	}
+}
+
+void test_copy_rect(struct canvas *c)
+{
+	// Fill the screen with something.
+	test_circles(c);
+
+	// Non-overlapping copy.
+	rendering_copy_rect(c, 0, c->height / 2,
+	    &(struct rect) {
+		.x = 0, .y = 0, .w = c->width / 2, .h = c->height / 2 });
+
+	// Overlapping, directed NW.
+	rendering_copy_rect(c, c->width / 3, c->height / 3,
+	    &(struct rect) { .x = c->width / 2,
+		.y = c->height / 2,
+		.w = c->width / 2,
+		.h = c->height / 2 });
+
+	// Overlapping, directed E.
+	rendering_copy_rect(c, c->width / 4, 0,
+	    &(struct rect) {
+		.x = 0, .y = 0, .w = c->width / 2, .h = c->height / 2 });
+
+	// Overlapping, directed W.
+	rendering_copy_rect(c, c->width / 4, c->height / 2,
+	    &(struct rect) { .x = c->width / 2,
+		.y = c->height / 2,
+		.w = c->width / 2,
+		.h = c->height / 2 });
+
+	// Overlapping, directed SE.
+	rendering_copy_rect(c, c->width / 8, c->height / 4,
+	    &(struct rect) { .x = 0,
+		.y = c->height / 8,
+		.w = c->width / 2,
+		.h = c->height / 2 });
+
+	// Out of bounds, intersecting pixel strip at S edge.
+	rendering_copy_rect(c, c->width / 2, c->height - 1,
+	    &(struct rect) {
+		.x = 0, .y = c->height / 2, .w = c->width, .h = c->height });
+
+	// Out of bounds, intersecting near E edge.
+	rendering_copy_rect(c, c->width * 16 / 17, 0,
+	    &(struct rect) { .x = c->width * 3 / 4,
+		.y = c->height / 3,
+		.w = c->width,
+		.h = c->height });
 }
