@@ -32,3 +32,6 @@ enum ui_failure ui_pane_draw_rect(
 
 enum ui_failure ui_pane_draw_circle(
     struct ui_ctx *ctx, char *name, const struct circle *, struct color);
+
+enum ui_failure ui_pane_copy_rect(struct ui_ctx *ctx, char *name, uint16_t x,
+    uint16_t y, const struct rect *);
