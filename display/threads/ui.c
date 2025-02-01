@@ -335,3 +335,30 @@ enum ui_failure ui_pane_draw_circle(
 	pthread_mutex_unlock(&ctx->panes.lock);
 	return UI_OK;
 }
+
+enum ui_failure ui_pane_copy_rect(struct ui_ctx *ctx, char *name, uint16_t x,
+    uint16_t y, const struct rect *rect)
+{
+	int r;
+
+	r = pthread_mutex_lock(&ctx->panes.lock);
+	if (r != 0)
+		FATAL_ERR("%s: failed to lock: %s\n", __func__, strerror(r));
+
+	struct pane *p = NULL;
+	for (size_t i = 0; i < ctx->panes.count; i++) {
+		p = &ctx->panes.panes[i];
+		if (strcmp(p->name, name) == 0)
+			break;
+	}
+
+	if (!p) {
+		pthread_mutex_unlock(&ctx->panes.lock);
+		return UI_NO_SUCH_PANE;
+	}
+
+	rendering_copy_rect(p->canvas, x, y, rect);
+
+	pthread_mutex_unlock(&ctx->panes.lock);
+	return UI_OK;
+}
