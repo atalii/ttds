@@ -47,6 +47,7 @@ struct action_container {
 static void *cmd_inner(void *arg);
 static char *find_target(char **);
 static bool parse(char **input_cursor, struct parse_result *result);
+static bool cmd_should_ignore(char *);
 
 static bool call_action(struct ui_ctx *ctx, const struct command *c,
     const struct action_container *, size_t len);
@@ -62,6 +63,7 @@ static void act_rect(struct ui_ctx *, char *target, size_t argc, char **argv);
 static void act_circle(struct ui_ctx *, char *target, size_t argc, char **argv);
 
 static void act_term(struct ui_ctx *, char *target, size_t argc, char **argv);
+static void act_save(struct ui_ctx *, char *target, size_t argc, char **argv);
 
 static bool parse_color(const char *in, struct color *out);
 static bool parse_args(const char *fmt, size_t argc, char **argv, ...);
@@ -75,6 +77,7 @@ static const struct action_container actions[] = {
 
 static const struct action_container root_actions[] = {
 	{ "TERMINATE", act_term },
+	{ "SAVE", act_save },
 };
 
 void *cmd_thread(void *arg)
@@ -131,14 +134,25 @@ static void *cmd_inner(void *arg)
 		if (!(fds[1].revents & POLLIN))
 			continue;
 
-		if (!fgets(line, MAX_CMD_LEN, stdin))
-			FATAL_ERR(
-			    "commands: couldn't read from stdin: %s", STR_ERR);
+		if (!fgets(line, MAX_CMD_LEN, stdin)) {
+			// Ignore stdin upon EOF to prevent spinning.
+			if (feof(stdin))
+				fds[1].fd = -1;
+
+			if (ferror(stdin))
+				FATAL_ERR(
+				    "commands: couldn't read from stdin: %s",
+				    STR_ERR);
+		}
 
 		// Trim newline.
 		size_t len = strlen(line);
 		if (len >= 1)
 			line[len - 1] = '\0';
+
+		// Ignore blank lines, comments, etc.
+		if (cmd_should_ignore(line))
+			continue;
 
 		char *line_cursor = line;
 		char *target = find_target(&line_cursor);
@@ -225,6 +239,22 @@ static bool parse(char **input_cursor, struct parse_result *result)
 	*input_cursor = arg_start;
 
 	return result;
+}
+
+static bool cmd_should_ignore(char *line)
+{
+	size_t len = strlen(line);
+
+	// Ignore blank lines.
+	if (len == 0)
+		return true;
+
+	// Ignore comments.
+	// TODO: " #" is not a comment
+	if (len >= 1 && line[0] == '#')
+		return true;
+
+	return false;
 }
 
 static bool call_action(struct ui_ctx *ctx, const struct command *c,
@@ -379,6 +409,21 @@ static void act_term(struct ui_ctx *, char *, size_t, char **)
 	kill(getpid(), SIGINT);
 }
 
+static void act_save(struct ui_ctx *ctx, char *target, size_t argc, char **argv)
+{
+	(void)target;
+
+	char *name;
+	char *path;
+	if (!parse_args("ss", argc, argv, &name, &path))
+		return;
+
+	enum ui_failure r = ui_pane_save(ctx, name, path);
+	if (r != UI_OK)
+		fprintf(
+		    stderr, "%s: failed: %s\n", __func__, ui_failure_str(r));
+}
+
 static bool parse_color(const char *in, struct color *out)
 {
 	if (in[0] != '#')
@@ -434,6 +479,10 @@ static bool parse_args(const char *fmt, size_t argc, char **argv, ...)
 				    "failure: expected number, got: %s\n", in);
 				return false;
 			}
+			break;
+		case 's':
+			char **sout = va_arg(args, char **);
+			*sout = in;
 			break;
 		default:
 			// Violently explode in lieu of proper compile-time type
