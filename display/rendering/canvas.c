@@ -22,6 +22,7 @@
 		rendering_draw_##type(c, v);                                  \
 	}
 
+static inline intmax_t max(intmax_t a, intmax_t b);
 static void draw_point(struct canvas *, int32_t x, int32_t y, struct color);
 
 struct canvas *canvas_init_bgra(uint16_t width, uint16_t height)
@@ -122,6 +123,93 @@ DEFN_RENDER(circle, {
 	}
 })
 
+DEFN_RENDER(line, {
+	const struct color color = line->c;
+
+	// I think this is essentially Bresenham's line algorithm, as in, that
+	// is where the ideas came from, but with the caveat that I didn't want
+	// a separate vertical and horizontal drawing function.
+	//
+	// ## Terms
+	//
+	// Since this is octant-agnostic, we generalize the notion of a step
+	// between pixels.
+	//
+	// Considering the vector (dx, dy), one component will have greater or
+	// equal magnitude than the other, so at every iteration, the pixel
+	// position will be incremented along that component. I refer to this
+	// increment vector as the step.
+	//
+	// The pixel position may also be incremented along the component with
+	// lesser magnitude, but this happens a fraction of the time (a fraction
+	// in the range [0, 1]). I refer to this as the lesser step.
+	//
+	// ## Process for deriving
+	//
+	// 1. Determine whether to step in the lesser direction.
+	//    - Given the two possible future points (either cur + step or cur +
+	//      step + lstep), and the point on the line which lies between
+	//      them, which future point is closer to the line? This calculation
+	//      is made with real numbers, approximated with floats.
+	// 2. Scale the two distances such that the comparison is still
+	//    meaningful, while eliminating floating point division. Now, we can
+	//    use integers!
+	// 3. Avoid recomputing the distances from scratch each iteration.
+	//    - Determine the initial value, and the difference between the
+	//      (i+1)th and ith values for each branch.
+
+	const int32_t dx = (int32_t)line->x1 - (int32_t)line->x0;
+	const int32_t dy = (int32_t)line->y1 - (int32_t)line->y0;
+
+	const uint16_t steps = (uint16_t)max(abs(dx), abs(dy));
+
+	if (steps == 0) {
+		draw_point(c, line->x0, line->y0, color);
+		return;
+	}
+
+	// step_x and step_y are both in the range [-1, 1], and
+	// at least one is -1 or 1
+	const int32_t step_x = dx / steps;
+	const int32_t step_y = dy / steps;
+
+	const int32_t lstep_x = step_x == 0 ? (dx != 0 ? dx / abs(dx) : 0) : 0;
+	const int32_t lstep_y = step_y == 0 ? (dy != 0 ? dy / abs(dy) : 0) : 0;
+
+	uint16_t x = line->x0;
+	uint16_t y = line->y0;
+
+	int32_t d0_x = steps * step_x;
+	int32_t d0_y = steps * step_y;
+	int32_t d1_x = -steps * (step_x + lstep_x);
+	int32_t d1_y = -steps * (step_y + lstep_y);
+
+	for (uint16_t i = 0; i <= steps; i++) {
+		draw_point(c, x, y, color);
+
+		const int32_t px = abs(d0_x) - abs(d1_x);
+		const int32_t py = abs(d0_y) - abs(d1_y);
+
+		x += step_x;
+		d0_x += steps * step_x - dx;
+		d1_x -= steps * step_x - dx;
+		if (px >= 0) {
+			x += lstep_x;
+			d0_x += steps * lstep_x;
+			d1_x -= steps * lstep_x;
+		}
+
+		y += step_y;
+		d0_y += steps * step_y - dy;
+		d1_y -= steps * step_y - dy;
+		if (py >= 0) {
+			y += lstep_y;
+			d0_y += steps * lstep_y;
+			d1_y -= steps * lstep_y;
+		}
+	}
+})
+
 void rendering_dump_bgra_to_rgba(
     const struct canvas *c, DIR *dir, const char *dirpath, const char *path)
 {
@@ -163,6 +251,11 @@ void rendering_dump_bgra_to_rgba(
 	if (close(fd) < 0)
 		FATAL_ERR(
 		    "Failed to close file: %s/%s: %s", dirpath, path, STR_ERR);
+}
+
+static inline intmax_t max(intmax_t a, intmax_t b)
+{
+	return a < b ? b : a;
 }
 
 static void draw_point(
