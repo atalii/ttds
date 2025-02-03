@@ -32,6 +32,7 @@ static void run_these_tests(
 
 static void test_rects(struct canvas *c);
 static void test_circles(struct canvas *c);
+static void test_lines_burst(struct canvas *c);
 
 void run_tests(const char *dump_dir)
 {
@@ -49,6 +50,13 @@ void run_tests(const char *dump_dir)
 		    .output_path = "circles.data",
 		    .width = 128,
 		    .height = 128,
+		},
+		{
+		    .fill_color = BG,
+		    .draw_fn = test_lines_burst,
+		    .output_path = "lines-burst.data",
+		    .width = 32,
+		    .height = 32,
 		},
 	};
 
@@ -178,5 +186,29 @@ static void test_circles(struct canvas *c)
 		};
 
 		rendering_draw_circle(c, &circle);
+	}
+}
+
+static void test_lines_burst(struct canvas *c)
+{
+	for (uint16_t x = 0; x <= c->width; x += c->width / 4) {
+		for (uint16_t y = 0; y <= c->height; y += c->height) {
+			struct line line = { .x0 = c->width / 2,
+				.y0 = c->height / 2,
+				.x1 = x,
+				.y1 = y,
+				.c = FG };
+			rendering_draw_line(c, &line);
+		}
+	}
+	for (uint16_t x = 0; x <= c->width; x += c->width) {
+		for (uint16_t y = 0; y <= c->height; y += c->height / 4) {
+			struct line line = { .x0 = c->width / 2,
+				.y0 = c->height / 2,
+				.x1 = x,
+				.y1 = y,
+				.c = FG };
+			rendering_draw_line(c, &line);
+		}
 	}
 }
