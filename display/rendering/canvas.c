@@ -10,16 +10,17 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define DEFN_RENDER(type, body)                                               \
-	void rendering_draw_##type(struct canvas *c, const struct type *type) \
-	{                                                                     \
-		body                                                          \
-	}                                                                     \
-                                                                              \
-	void rendering_draw_##type##_type_erased(                             \
-	    struct canvas *c, const void *v)                                  \
-	{                                                                     \
-		rendering_draw_##type(c, v);                                  \
+#define DEFN_RENDER(verb, type, body)                  \
+	void rendering_##verb##_##type(                \
+	    struct canvas *c, const struct type *type) \
+	{                                              \
+		body                                   \
+	}                                              \
+                                                       \
+	void rendering_##verb##_##type##_type_erased(  \
+	    struct canvas *c, const void *v)           \
+	{                                              \
+		rendering_##verb##_##type(c, v);       \
 	}
 
 static void draw_point(struct canvas *, int32_t x, int32_t y, struct color);
@@ -62,7 +63,7 @@ void rendering_fill(struct canvas *c, struct color color)
 			draw_point(c, x, y, color);
 }
 
-DEFN_RENDER(rect, {
+DEFN_RENDER(draw, rect, {
 	printf("%d, %d, %d\n", rect->c.r, rect->c.g, rect->c.b);
 
 	uint16_t right_edge = rect->x + rect->w;
@@ -72,7 +73,7 @@ DEFN_RENDER(rect, {
 			draw_point(c, x, y, rect->c);
 })
 
-DEFN_RENDER(circle, {
+DEFN_RENDER(draw, circle, {
 	uint16_t x = circle->r;
 	uint16_t y = 0;
 	int32_t t1 = circle->r / 16;

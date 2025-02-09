@@ -31,12 +31,13 @@ void canvas_deinit(struct canvas *);
 
 void rendering_fill(struct canvas *, struct color);
 
-#define DECL_RENDERING_FNS(type)                                          \
-	void rendering_draw_##type(struct canvas *, const struct type *); \
-	void rendering_draw_##type##_type_erased(struct canvas *, const void *);
+#define DECL_RENDERING_FNS(verb, type)                                        \
+	void rendering_##verb##_##type(struct canvas *, const struct type *); \
+	void rendering_##verb##_##type##_type_erased(                         \
+	    struct canvas *, const void *);
 
-DECL_RENDERING_FNS(rect)
-DECL_RENDERING_FNS(circle)
+DECL_RENDERING_FNS(draw, rect)
+DECL_RENDERING_FNS(draw, circle)
 
 void rendering_dump_bgra_to_rgba(
     const struct canvas *c, DIR *dir, const char *dirpath, const char *path);
