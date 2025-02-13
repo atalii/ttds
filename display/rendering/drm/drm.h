@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../canvas.h"
+#include "input.h"
 
 void *drm_rendering_init(void);
 void drm_rendering_cleanup(void *drm_ctx);

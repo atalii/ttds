@@ -1,3 +1,5 @@
+#pragma once
+
 void term_init(int);
 void term_block(void);
 
