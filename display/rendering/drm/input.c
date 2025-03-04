@@ -1,7 +1,7 @@
 #include "input.h"
 
 #include "../abort.h"
-#include "termination.h"
+#include "threads/termination.h"
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -59,7 +59,7 @@ static void gather_fds(struct eloop_ctx *);
 
 static void cleanup(struct eloop_ctx *);
 
-void *input_thread(void *arg)
+void *drm_input_thread(void *arg)
 {
 	arg_use = arg; // shut clang up :)
 

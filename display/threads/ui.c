@@ -2,6 +2,7 @@
 
 #include "../abort.h"
 #include "../rendering/rendering.h"
+#include "rendering/canvas.h"
 #include "termination.h"
 
 #include <assert.h>
@@ -326,6 +327,37 @@ enum ui_failure ui_pane_draw_shape(
 	}
 
 	inner(p->canvas, shape);
+
+	pthread_mutex_unlock(&ctx->panes.lock);
+	return UI_OK;
+}
+
+enum ui_failure ui_pane_save(struct ui_ctx *ctx, char *name, char *path)
+{
+	// `name` is the pane whose canvas we are saving, not The Target. the
+	// target should always be "root" because this is a privileged action.
+
+	int r;
+
+	r = pthread_mutex_lock(&ctx->panes.lock);
+	if (r != 0)
+		FATAL_ERR("%s: failed to lock: %s\n", __func__, strerror(r));
+
+	struct pane *p = lookup_pane_thread_unsafe(&ctx->panes, name);
+	if (!p) {
+		pthread_mutex_unlock(&ctx->panes.lock);
+		return UI_NO_SUCH_PANE;
+	}
+
+	const char *dirpath = ".";
+
+	DIR *dir = opendir(dirpath);
+	if (!dir)
+		FATAL_ERR("Failed to open directory: %s: %s", dirpath, STR_ERR);
+
+	rendering_dump_bgra_to_rgba(p->canvas, dir, dirpath, path);
+	fprintf(stderr, "ui: saved pane '%s' RGBA pixel data to file: %s/%s\n",
+	    name, dirpath, path);
 
 	pthread_mutex_unlock(&ctx->panes.lock);
 	return UI_OK;

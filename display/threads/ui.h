@@ -31,3 +31,5 @@ enum ui_failure ui_pane_remove(struct ui_ctx *ctx, char *name);
 
 enum ui_failure ui_pane_draw_shape(
     struct ui_ctx *ctx, char *name, const void *shape, render_fn_t inner);
+
+enum ui_failure ui_pane_save(struct ui_ctx *ctx, char *name, char *path);
